@@ -1,22 +1,5 @@
-// Mock data for movie search results
-const mockMovies = [
-    {
-        imdbID: "tt1375666",
-        Title: "Inception",
-        Year: "2010",
-        Poster: "https://m.media-amazon.com/images/M/MV5BMjAxMzY3NjcxNF5BMl5BanBnXkFtZTcwNTI5OTM0Mw@@._V1_SX300.jpg",
-        Runtime: "148 min",
-        Language: "English, Japanese, French"
-    },
-    {
-        imdbID: "tt0816692",
-        Title: "Interstellar",
-        Year: "2014",
-        Poster: "https://m.media-amazon.com/images/M/MV5BZjdkOTU3MDktN2IxOS00OGEyLWFmMjktY2FiMmZkNWIyODZiXkEyXkFqcGdeQXVyMTMxODk2OTU@._V1_SX300.jpg",
-        Runtime: "169 min",
-        Language: "English"
-    }
-];
+require('dotenv').config();
+const API_KEY = process.env.API_KEY;
 
 let selectedMovie = null;
 let showtimes = [];
@@ -39,9 +22,27 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleSearch() {
         const searchTerm = searchInput.value.trim();
         if (searchTerm) {
-            // In a real application, you would make an API call here
-            displaySearchResults(mockMovies);
+            // Fetch data from the OMDB API instead of using mock data
+            fetchMovies(searchTerm);
         }
+    }
+
+    // New function to fetch movies from the OMDB API
+    function fetchMovies(searchTerm) {
+        const url = `http://www.omdbapi.com/?s=${encodeURIComponent(searchTerm)}&apikey=${API_KEY}`;
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.Response === "True") {
+                    displaySearchResults(data.Search);
+                } else {
+                    alert('No movies found.');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+                alert('Failed to fetch data. Please try again later.');
+            });
     }
 
     function displaySearchResults(movies) {
@@ -61,12 +62,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function selectMovie(movie) {
         selectedMovie = movie;
+        
+        // Clear and hide search input and results
+        searchInput.value = ''; // Clear the search input
+        searchResults.innerHTML = ''; // Clear the search results
+        searchResults.classList.add('hidden'); // Hide the search results section
+        
+        // Show movie details and showtime manager
         displayMovieDetails();
         showSection(movieDetails);
         showSection(showtimeManager);
-        // Hide the search results (movie cards) after selecting a movie
-        searchResults.classList.add('hidden'); // This line ensures the search results are hidden
+    }
 
+    // Add a function to show search section again (optional)
+    function showSearchSection() {
+        searchResults.classList.remove('hidden');
+        // You could add a "Back to Search" button that calls this function
     }
 
     function displayMovieDetails() {
@@ -75,8 +86,6 @@ document.addEventListener('DOMContentLoaded', function() {
             <div>
                 <h2>${selectedMovie.Title}</h2>
                 <p>Year: ${selectedMovie.Year}</p>
-                <p>Runtime: ${selectedMovie.Runtime}</p>
-                <p>Language: ${selectedMovie.Language}</p>
             </div>
         `;
     }
