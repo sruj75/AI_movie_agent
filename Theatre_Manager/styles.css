@@ -119,3 +119,14 @@ button:hover {
     background-color: #c82333;
 }
 
+.movie-card .poster-container {
+    width: 200px;
+    height: auto;
+}
+
+.movie-card .movie-poster {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+

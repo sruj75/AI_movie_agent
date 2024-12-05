@@ -51,7 +51,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const movieCard = document.createElement('div');
             movieCard.className = 'movie-card';
             movieCard.innerHTML = `
-                <img src="${movie.Poster}" alt="${movie.Title}">
+                <div class="poster-container">
+                    <img src="${movie.Poster}" alt="${movie.Title}" class="movie-poster">
+                </div>
                 <h3>${movie.Title}</h3>
                 <p>${movie.Year}</p>
             `;
