@@ -1,4 +1,4 @@
-from src.database import SupabaseClient
+from Agentic_workflow.database import SupabaseClient
 
 supabase_client = SupabaseClient()
 

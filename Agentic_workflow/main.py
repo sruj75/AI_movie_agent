@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from src.telegram_bot import setup_telegram_bot
+from Agentic_workflow.telegram_bot import setup_telegram_bot
 
 load_dotenv()
 

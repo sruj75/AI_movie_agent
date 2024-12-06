@@ -2,7 +2,7 @@ import os
 import openai
 from llama_index import SimpleDirectoryReader, VectorStoreIndex, LLMPredictor, ServiceContext
 from llama_index import LLMAgent, Tool
-from src.agent_tools import check_showtimes_tool, book_tickets_tool
+from Agentic_workflow.agent_tools import check_showtimes_tool, book_tickets_tool
 from llama_index.llms import OpenAI
 from llama_index.agent import PlanAndExecute, load_agent_executor, load_agent_planner
 

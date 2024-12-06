@@ -1,6 +1,6 @@
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from telegram import ParseMode
-from src.llm_setup import agent
+from Agentic_workflow.llm_setup import agent
 import os
 
 def start(update, context):
