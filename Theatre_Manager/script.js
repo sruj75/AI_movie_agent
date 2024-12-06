@@ -1,4 +1,5 @@
 require('dotenv').config();
+import { supabase } from './supabaseClient';
 const API_KEY = process.env.API_KEY;
 
 let selectedMovie = null;
@@ -62,18 +63,45 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function selectMovie(movie) {
-        selectedMovie = movie;
-        
-        // Clear and hide search input and results
-        searchInput.value = ''; // Clear the search input
-        searchResults.innerHTML = ''; // Clear the search results
-        searchResults.classList.add('hidden'); // Hide the search results section
-        
-        // Show movie details and showtime manager
-        displayMovieDetails();
-        showSection(movieDetails);
-        showSection(showtimeManager);
+    async function selectMovie(movie) {
+        try {
+            // First, check if movie exists in database
+            const { data, error } = await supabase
+                .from('movies')
+                .select('*')
+                .eq('imdb_id', movie.imdbID)
+                .single();
+
+            if (error && error.code !== 'PGRST116') throw error;
+
+            if (!data) {
+                // Movie doesn't exist, insert it
+                const { error: insertError } = await supabase
+                    .from('movies')
+                    .insert([{
+                        title: movie.Title,
+                        year: movie.Year,
+                        poster_url: movie.Poster,
+                        imdb_id: movie.imdbID,
+                        additional_info: movie
+                    }]);
+
+                if (insertError) throw insertError;
+            }
+
+            selectedMovie = movie;
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+            searchResults.classList.add('hidden');
+            
+            displayMovieDetails();
+            showSection(movieDetails);
+            showSection(showtimeManager);
+            displayShowtimes();
+        } catch (error) {
+            console.error('Error selecting movie:', error);
+            alert('Failed to select movie. Please try again.');
+        }
     }
 
     // Add a function to show search section again (optional)
@@ -92,47 +120,82 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     }
 
-    function handleAddShowtime(e) {
+    async function handleAddShowtime(e) {
         e.preventDefault();
         const newShowtime = {
-            id: Date.now().toString(),
+            movie_id: selectedMovie.imdb_id, // Using IMDB ID as reference
             name: document.getElementById('showtimeName').value,
-            time: document.getElementById('showtimeTime').value,
-            balconySeats: parseInt(document.getElementById('balconySeats').value),
-            firstClassSeats: parseInt(document.getElementById('firstClassSeats').value)
+            show_time: document.getElementById('showtimeTime').value,
+            balcony_seats: parseInt(document.getElementById('balconySeats').value),
+            first_class_seats: parseInt(document.getElementById('firstClassSeats').value)
         };
-        showtimes.push(newShowtime);
-        displayShowtimes();
-        addShowtimeForm.reset();
+
+        try {
+            const { data, error } = await supabase
+                .from('showtimes')
+                .insert([newShowtime]);
+
+            if (error) throw error;
+            
+            showtimes.push(data[0]);
+            displayShowtimes();
+            addShowtimeForm.reset();
+        } catch (error) {
+            console.error('Error adding showtime:', error);
+            alert('Failed to add showtime. Please try again.');
+        }
     }
 
-    function displayShowtimes() {
-        showtimeList.innerHTML = '';
-        showtimes.forEach(showtime => {
-            const showtimeItem = document.createElement('div');
-            showtimeItem.className = 'showtime-item';
-            showtimeItem.innerHTML = `
-                <div>
-                    <strong>${showtime.name}</strong> - ${showtime.time}
-                    <br>
-                    Balcony: ${showtime.balconySeats}, First Class: ${showtime.firstClassSeats}
-                </div>
-                <button class="delete-showtime" data-id="${showtime.id}">Delete</button>
-            `;
-            showtimeList.appendChild(showtimeItem);
-        });
+    async function displayShowtimes() {
+        try {
+            const { data, error } = await supabase
+                .from('showtimes')
+                .select('*')
+                .eq('movie_id', selectedMovie.imdb_id);
 
-        // Add event listeners for delete buttons
-        document.querySelectorAll('.delete-showtime').forEach(button => {
-            button.addEventListener('click', function() {
-                deleteShowtime(this.getAttribute('data-id'));
+            if (error) throw error;
+
+            showtimeList.innerHTML = '';
+            data.forEach(showtime => {
+                const showtimeItem = document.createElement('div');
+                showtimeItem.className = 'showtime-item';
+                showtimeItem.innerHTML = `
+                    <div>
+                        <strong>${showtime.name}</strong> - ${new Date(showtime.show_time).toLocaleTimeString()}
+                        <br>
+                        Balcony: ${showtime.balcony_seats}, First Class: ${showtime.first_class_seats}
+                    </div>
+                    <button class="delete-showtime" data-id="${showtime.id}">Delete</button>
+                `;
+                showtimeList.appendChild(showtimeItem);
             });
-        });
+
+            // Add event listeners for delete buttons
+            document.querySelectorAll('.delete-showtime').forEach(button => {
+                button.addEventListener('click', function() {
+                    deleteShowtime(this.getAttribute('data-id'));
+                });
+            });
+        } catch (error) {
+            console.error('Error fetching showtimes:', error);
+            alert('Failed to load showtimes. Please try again.');
+        }
     }
 
-    function deleteShowtime(id) {
-        showtimes = showtimes.filter(showtime => showtime.id !== id);
-        displayShowtimes();
+    async function deleteShowtime(id) {
+        try {
+            const { error } = await supabase
+                .from('showtimes')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            displayShowtimes();
+        } catch (error) {
+            console.error('Error deleting showtime:', error);
+            alert('Failed to delete showtime. Please try again.');
+        }
     }
 
     function showSection(section) {

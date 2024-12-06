@@ -37,7 +37,7 @@ CREATE TABLE bookings (
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'cancelled'))
 );
 
--- Create trigger to update updated_at timestamp
+-- Trigger to update 'updated_at'
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN

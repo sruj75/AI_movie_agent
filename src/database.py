@@ -1,5 +1,11 @@
 from supabase import create_client
-from .config import SUPABASE_URL, SUPABASE_KEY
+import os
+from dotenv import load_dotenv  # Import the load_dotenv function
+
+load_dotenv()  # Load variables from the .env file
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE")  # Corrected key name
 
 class SupabaseClient:
     def __init__(self):
