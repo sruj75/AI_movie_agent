@@ -40,7 +40,7 @@ agent = OpenAIAgent.from_tools(
         "Offer options, and when the user selects one, use 'book_tickets' to finalize the reservation. "
         "Continue until a booking is confirmed or the user stops."
     ),
-    model="gpt-4o"  # Updated model
+    model="gpt-4o-mini"  # Updated model
 )
 
 def main():
