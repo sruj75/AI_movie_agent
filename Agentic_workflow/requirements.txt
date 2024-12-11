@@ -1,5 +1,0 @@
-python-telegram-bot==20.0
-openai
-llama-index
-python-dotenv
-supabase
