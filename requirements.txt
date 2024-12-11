@@ -2,3 +2,5 @@ streamlit
 python-dotenv
 httpx
 llama-index
+logfire
+openai
