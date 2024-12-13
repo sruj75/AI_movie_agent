@@ -1,110 +1,65 @@
+from llama_index.core.tools import FunctionTool
+from llama_index.agent.openai import OpenAIAgent
+from tools.web_search import search_web, WebSearchDeps
+from dotenv import load_dotenv
 import asyncio
 import os
-from llama_index.llms.openai import OpenAI
-from llama_index.agent.openai import OpenAIAgent
-from llama_index.core.tools import FunctionTool
-import streamlit as st
-from dotenv import load_dotenv
-from datetime import datetime
-import httpx
-import logfire
-from dataclasses import dataclass
-from tools.ask_user import ask_user
-from tools.get_available_showtimes import get_available_showtimes
-from tools.book_tickets import book_tickets
-from tools.web_search import search_web
+from httpx import AsyncClient
+from tenacity import retry, wait_exponential, stop_after_attempt
 
-# Configure logging and env
-logfire.configure(send_to_logfire='if-token-present')
+# Load environment variables from .env file
 load_dotenv()
+
+# Use the environment variable
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
-@dataclass
-class Deps:
-    client: httpx.AsyncClient
-    brave_api_key: str | None
+async def web_search_wrapper(web_query: str) -> str:
+    """Wrapper function to make the async web search work with LlamaIndex"""
+    async with AsyncClient() as client:
+        brave_api_key = os.getenv('BRAVE_API_KEY', None)
+        deps = WebSearchDeps(client=client, brave_api_key=brave_api_key)
+        return await search_web(deps, web_query)
 
-# Configure OpenAI LLM
-llm = OpenAI(
-    model="gpt-4o-mini",
-    streaming=True
-)
+# Create a synchronous version for LlamaIndex
+def web_search_sync(web_query: str) -> str:
+    return asyncio.run(web_search_wrapper(web_query))
 
-# Create all tools
+# Define tools
 tools = [
     FunctionTool.from_defaults(
-        fn=lambda *args, **kwargs: asyncio.run(search_web(*args, **kwargs)),
-        name="search_web",
-        description="Search the web for movie information and reviews.",
-    ),
-    FunctionTool.from_defaults(
-        fn=ask_user,
-        name="ask_user",
-        description="Ask the user for additional input about movie booking."
-    ),
-    FunctionTool.from_defaults(
-        fn=get_available_showtimes,
-        name="get_available_showtimes",
-        description="Get available showtimes for a given movie, location, and seat requirement."
-    ),
-    FunctionTool.from_defaults(
-        fn=book_tickets,
-        name="book_tickets",
-        description="Book seats for a showtime."
+        fn=web_search_sync,
+        name="web_search",
+        description="Search the web for current information about a topic"
     )
 ]
 
-# Create the unified agent
+# Create the agent
 agent = OpenAIAgent.from_tools(
     tools=tools,
-    llm=llm,
     system_prompt=(
-        "You are a movie assistant that can both search for movie information and help book tickets. "
-        "If the user asks about movie information, reviews, or details, use the search_web tool. "
-        "If they want to book tickets, help them by asking for movie name, time, location, and seats using ask_user tool. "
-        "Use get_available_showtimes to check availability and book_tickets to complete the booking. "
-        f"The current date is: {datetime.now().strftime('%Y-%m-%d')}."
+        "You are an expert at researching the web to answer user questions. "
+        "Use the web_search tool to find relevant and up-to-date information. "
+        "Always cite your sources and provide clear, concise answers."
     ),
+    model="gpt-4"  # You can adjust the model as needed
 )
 
-async def prompt_ai(prompt: str, brave_api_key: str):
-    """Stream responses from the agent."""
-    # Pass the brave_api_key as a direct parameter
-    response = await agent.stream_chat(
-        prompt,
-        function_kwargs={"search_web": {"brave_api_key": brave_api_key}}  # Specify which function gets which kwargs
-    )
-    
-    async for chunk in response:
-        yield chunk.response
+@retry(wait=wait_exponential(multiplier=1, min=4, max=10), stop=stop_after_attempt(5))
+def get_agent_response(user_message: str):
+    return agent.chat(user_message)
 
-async def main():
-    st.title("Movie Information & Booking Assistant")
+def main():
+    print("💬 Ask me anything, and I'll search the web for answers!")
+    user_message = input("👉 Enter Message: ")
 
-    # Initialize chat history in session state
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    # Display all previous messages
-    for message in st.session_state.messages:
-        role, content = message
-        with st.chat_message(role):
-            st.markdown(content)
-
-    if prompt := st.chat_input("Ask about movies or book tickets"):
-        st.chat_message("user").markdown(prompt)
-        st.session_state.messages.append(("user", prompt))
-
-        response_content = ""
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            brave_api_key = os.getenv("BRAVE_API_KEY", None)
-
-            async for chunk in prompt_ai(prompt, brave_api_key):
-                response_content += chunk
-                message_placeholder.markdown(response_content)
-
-        st.session_state.messages.append(("assistant", response_content))
+    while True:
+        response = agent.chat(user_message)
+        response_text = response.response
+        print(f"✨ Agent Response: {response_text}\n")
+        
+        user_message = input("👉 Enter Message (or 'quit' to exit): ")
+        if user_message.lower() == 'quit':
+            break
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    main()
